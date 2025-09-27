@@ -1,0 +1,298 @@
+---
+title: "Viz I"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggridges)
+library(p8105.datasets)
+library(hexbin)
+```
+
+Import the weather data
+
+```{r}
+data("weather_df")
+
+```
+
+Making our first plot :-)
+
+```{r}
+
+ggplot(weather_df, aes(x = tmin, y = tmax)) +
+  geom_point()
+
+# need to specify which geom I want to use
+# + used for plots instead of piping
+
+```
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax)) +
+  geom_point()
+
+```
+
+```{r}
+
+ggp_weather_scatterplot = 
+  weather_df |>
+    ggplot(aes(x = tmin, y = tmax)) +
+    geom_point()
+
+ggp_weather_scatterplot
+
+```
+
+Check that some rows are missing.
+
+```{r}
+
+weather_df |>
+  filter(is.na(tmax))
+
+# produce summary of how much missingness is in the data
+# naniar can also be used to explore and manage missing values
+
+```
+
+## Fancier scatterplots!
+
+```{r}
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax, color = name)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(se = FALSE) # creates lines
+
+```
+
+Where you define aesthetics can matter
+
+```{r}
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax)) +
+  geom_point(aes(color = name, size = prcp), alpha = 0.3) +
+  geom_smooth(se = FALSE) # only one smooth is included
+
+```
+
+use faceting real quick
+
+```{r}
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax)) +
+  geom_point(aes(color = name), alpha = 0.3, size = 0.8) +
+  geom_smooth(se = FALSE) +
+  facet_grid(. ~ name) # shows all three groups (names) as separate plots, column version
+
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax)) +
+  geom_point(aes(color = name), alpha = 0.3, size = 0.8) +
+  geom_smooth(se = FALSE) +
+  facet_grid(name ~ .) # row version
+
+```
+
+Let's make a somewhat more interesting scatterplot
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax, color = name, shape = name)) +
+  geom_point(aes(size = prcp), alpha = 0.3) +
+  geom_smooth(se = FALSE) +
+  facet_grid(. ~ name)
+
+# different shapes are given to the names
+
+
+```
+
+Learning Assessment: Write a code chain that starts with weather_df; focuses only on Central Park, converts temperatures to Fahrenheit, makes a scatterplot of min vs. max temperature, and overlays a linear regression line (using options in geom_smooth()).
+
+LA plot:
+
+```{r}
+
+weather_df |>
+  filter(name == "CentralPark_NY") |>
+  mutate(
+    tmax_fahr = tmax * (9/5) + 32,
+    tmin_fahr = tmin * (9/5) + 32
+  ) |>
+  ggplot(aes(x = tmin_fahr, y = tmax_fahr)) +
+    geom_point() +
+    geom_smooth(se = FALSE, method = "lm")
+
+
+```
+
+## Small things
+
+```{r}
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax, color = name, shape = name)) +
+#  geom_point(alpha = 0.3) +
+  geom_smooth(se = FALSE)
+# you don't need to have points in the plot
+
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax, color = name, shape = name)) +
+  geom_smooth(se = FALSE) +
+  geom_point() 
+# here the points come after the smooth
+
+
+```
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax)) +
+  geom_hex()
+
+```
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin, y = tmax)) +
+    geom_point(color = "#086bfd")
+# can choose the color of the points
+
+
+```
+
+## Univariate plots
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin)) +
+  geom_histogram(color = "white", fill = "red")
+# color aesthetic is the founds, fill is the color of the bins
+
+```
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin, color = name)) +
+  geom_histogram()
+
+weather_df |>
+  ggplot(aes(x = tmin, fill = name)) +
+  geom_histogram()
+
+```
+
+how would i fix this (better see the distribution of the data)? maybe facet?
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin, fill = name)) +
+  geom_histogram() +
+  facet_grid(name ~ .) # not overlapping anymore
+
+```
+
+maybe a density plot?
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin, fill = name)) +
+  geom_density(alpha = 0.2) # made the color lighter to see the overlap better
+
+
+```
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = name, y = tmin)) +
+    geom_boxplot(aes(fill = name))
+
+
+```
+
+violin plots
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = name, y = tmin, fill = name)) +
+    geom_violin()
+# violin plot is a vertical density plot that is symmetrical
+# good to tell you about the modality
+
+
+```
+
+ridge plot
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = tmin, y = name, fill = name)) +
+  geom_density_ridges()
+# good for showing density
+
+```
+
+LA univariate plots
+
+Learning Assessment: Make plots that compare precipitation across locations. Try a histogram, a density plot, a boxplot, a violin plot, and a ridgeplot; use aesthetic mappings to make your figure readable.
+
+```{r}
+
+weather_df |>
+  ggplot(aes(x = prcp, fill = name)) +
+  geom_density(alpha = 0.2)
+
+weather_df |>
+  ggplot(aes(x = prcp, fill = name)) +
+  geom_histogram() +
+  facet_grid(name  ~ .)
+
+weather_df |>
+  filter(prcp > 5, prcp < 1000) |>
+  ggplot(aes(x = prcp, fill = name)) +
+  geom_density(alpha = 0.2)
+# zooming in on the data
+
+```
+
+## Saving and embedding plots
+
+saving plots
+
+```{r}
+
+ggp_weather_violin = 
+  weather_df |>
+  ggplot(aes(x = name, y = tmin, fill = name)) +
+    geom_violin()
+
+ggp_weather_violin
+
+ggsave("plots/violin_plot.pdf", ggp_weather_violin,
+       width = 8, height = 6)
+# ggsave() takes plot name first, then plot you want to save, can also choose width and height
+
+```
+
+embedding plots
+
+```{r, fig.width = 6, fig.height = 4}
+
+ggp_weather_violin
+
+```
+
+
