@@ -1,0 +1,266 @@
+---
+title: "EDA"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(p8105.datasets)
+
+# default options
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+Import the weather data
+
+```{r}
+data("weather_df")
+
+weather_df = 
+  weather_df |> 
+  mutate(month = floor_date(date, unit = "month")) # round down to month to compute month by month summaries
+```
+
+Make plots
+
+```{r}
+weather_df |> 
+  ggplot(aes(x = prcp)) + 
+  geom_histogram()
+# there are some outliers
+```
+
+Check on extreme values
+
+```{r}
+weather_df |> 
+  filter(prcp > 1000)
+# can do a little bit digging to get the context of these extreme values/ outliers
+```
+
+Look at data again.
+
+```{r}
+weather_df |> 
+  filter(tmax >= 20, tmax <= 30) |> # subset tmax to 20-30
+  ggplot(aes(x = tmin, y = tmax, color = name, shape = name)) + 
+  geom_point()
+# central park and molokai has grid distribution while waterhole is different (b/c they used different measurement processes)
+```
+
+## Add groups
+
+```{r}
+weather_df |> 
+  group_by(name, month)
+# we get 72 groups
+# easy to miss grouping when it happened
+```
+
+Group and count things
+
+```{r}
+weather_df |> 
+  group_by(name) |> 
+  summarize(
+    n = n() # number of observations for each name group
+  )
+```
+
+```{r}
+weather_df |> 
+  group_by(month) |> 
+  summarize(
+    n = n_distinct(date) # number of distinct dates for each month
+  )
+```
+
+You can count directly
+
+```{r}
+weather_df |> 
+  count(name) # counts number of observations for each name group
+```
+
+## More interesting summaries
+
+Compute some extra stuff
+
+```{r}
+weather_df |> 
+  group_by(name, month) |> 
+  summarize(
+    mean_tmax = mean(tmax, na.rm = TRUE),
+    median_tmin = median(tmin, na.rm = TRUE), 
+    sd_prcp = sd(prcp, na.rm = TRUE)
+    # need to drop NAs or you will also be given NA for these summary statistics
+  ) 
+# here order doesn't matter
+```
+
+This is still a dataframe!!
+
+```{r}
+weather_df |> 
+  group_by(name, month) |> 
+  summarize(
+    mean_tmax = mean(tmax, na.rm = TRUE)
+  ) |> 
+  ggplot(aes(x = month, y = mean_tmax, color = name)) +
+  geom_point() + 
+  geom_line()
+# mean t max for each month shown, there is a different line for each name
+```
+
+Sometimes format results more nicely.
+
+```{r}
+weather_df |> 
+  group_by(name, month) |> 
+  summarize(
+    mean_tmax = mean(tmax, na.rm = TRUE)
+  ) |> 
+  pivot_wider(
+    names_from = name,
+    values_from = mean_tmax
+  ) |> # nicer way of seeing this table 
+  knitr::kable(digits = 2) # create nicely formatted table, sets how many decimals to show
+```
+
+## mutate with groups
+
+```{r}
+weather_df |> 
+  group_by(name) |> 
+  mutate(
+    mean_tmax = mean(tmax, na.rm = TRUE), 
+    center_tmax = tmax - mean_tmax # difference between tmax and the tmax mean, used to show difference between seasonal variation
+  ) |> 
+  ggplot(aes(x = date, y = center_tmax, color = name)) +
+  geom_point()
+```
+
+Look for cold days.
+
+```{r}
+weather_df |> 
+  group_by(name, month) |> 
+  mutate(temp_rank = min_rank(desc(tmin))) |> 
+  filter(temp_rank < 2)
+# shows the hottest day and its temperature for each month across names (locations) using tmin
+# there is no max_rank
+```
+
+What about lags?
+
+```{r}
+weather_df |> 
+  group_by(name) |> 
+  mutate(lagged_tmax = lag(tmax))
+# gives yesterday's value for tmax
+# can tell you about day to day, used in public health
+# order of the dataset matters!!!
+# this just copies a value over and moves one down
+# need to group by name
+```
+
+Use the variables you create
+
+```{r}
+weather_df |> 
+  group_by(name) |> 
+  mutate(
+    temp_change = tmax - lag(tmax) # temperature change between today and yesterday
+  ) |> 
+  summarize(
+    sd_tmax_change = sd(temp_change, na.rm = TRUE),
+    tmax_change_max = max(temp_change, na.rm = TRUE)
+  )
+# day to day temperature changes for each name (location), gives sd of temperature change and max temperature change
+```
+
+
+```{r}
+weather_df |> 
+  group_by(name) |> 
+  mutate(
+    temp_change = tmax - lag(tmax), 
+    change_rank = min_rank(desc(temp_change)) # use desc when looking for the maximum
+  ) |>
+  filter(
+    change_rank < 2 # don't have to create change_rank variable, can just put it here
+  )
+
+```
+
+```{r}
+weather_df |> 
+  group_by(name) |> 
+  mutate(
+    temp_change = tmax - lag(tmax), 
+  ) |>
+  filter(
+    min_rank(desc(temp_change)) < 2
+  )
+# gives maximum temperature change between current day and day before and the date asscociated with it
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Revisit PULSE
+
+```{r}
+pulse_df = 
+  haven::read_sas("data/public_pulse_data.sas7bdat") |> 
+  janitor::clean_names() |> 
+  pivot_longer(
+    bdi_score_bl:bdi_score_12m,
+    names_to = "visit",
+    names_prefix = "bdi_score_",
+    values_to = "bdi"
+  ) |> 
+  mutate(visit = fct_inorder(visit))
+
+pulse_df |> 
+  ggplot(aes(x = visit, y = bdi)) + 
+  geom_boxplot()
+
+
+pulse_df |> 
+  group_by(visit) |> 
+  summarize(
+    mean_bdi = mean(bdi, na.rm = TRUE),
+    median_bdi = median(bdi, na.rm = TRUE)
+  ) |> 
+  knitr::kable(digits = 2)
+```
+
+
+
